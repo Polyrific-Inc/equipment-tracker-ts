@@ -1,3 +1,5 @@
+// Update to api.types.ts - Add missing properties to AuthenticatedRequest
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API-related types and interfaces for HTTP endpoints and WebSocket communication
@@ -26,13 +28,16 @@ import type {
   Geofence,
 } from './position.types.js';
 
-// Extended Express types
+// Extended Express types with additional logging properties
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
     role: string;
   };
+  // Add missing properties used by logging middleware
+  requestId?: string;
+  traceId?: string;
 }
 
 export interface TypedResponse<T> extends Response {
@@ -353,4 +358,5 @@ export interface RateLimitConfig {
   readonly maxRequests: number;
   readonly skipSuccessfulRequests: boolean;
   readonly skipFailedRequests: boolean;
+  readonly message?: string;
 }
