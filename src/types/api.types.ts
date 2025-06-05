@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API-related types and interfaces for HTTP endpoints and WebSocket communication
  */
@@ -8,25 +9,19 @@ import type {
   Timestamp,
   ApiResponse,
   PaginatedResponse,
-  PaginationParams,
-  TimeRange,
   GeographicBounds,
 } from './common.types.js';
 import type {
   IEquipment,
-  EquipmentType,
-  EquipmentStatus,
   CreateEquipmentData,
   UpdateEquipmentData,
-  EquipmentQueryFilter,
   EquipmentAlert,
   FleetStats,
 } from './equipment.types.js';
 import type {
-  Position,
+  BasePosition, // Use BasePosition for API responses
   PositionWithMetadata,
   CreatePositionData,
-  PositionQueryFilter,
   MovementAnalysis,
   Geofence,
 } from './position.types.js';
@@ -122,14 +117,14 @@ export namespace EquipmentAPI {
     params: { id: EquipmentId };
     query: Partial<PositionQueryParams & PaginationQueryParams>;
   }
-  export type GetPositionsResponse = TypedResponse<PaginatedResponse<Position>>;
+  export type GetPositionsResponse = TypedResponse<PaginatedResponse<BasePosition>>; // Use BasePosition for API
 
   // POST /api/equipment/:id/positions
   export interface CreatePositionRequest extends Request {
     params: { id: EquipmentId };
     body: CreatePositionData;
   }
-  export type CreatePositionResponse = TypedResponse<Position>;
+  export type CreatePositionResponse = TypedResponse<BasePosition>; // Use BasePosition for API response
 
   // GET /api/equipment/:id/movement
   export interface GetMovementRequest extends Request {

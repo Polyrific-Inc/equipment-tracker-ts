@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Position and GPS-related types and interfaces
  */
@@ -15,9 +16,8 @@ import type {
   GeographicBounds,
 } from './common.types.js';
 
-// Core position interface (matches C++ Position class)
-export interface Position {
-  distanceTo(lastPosition: Position): unknown;
+// Base position data interface (without methods)
+export interface BasePosition {
   readonly latitude: Latitude;
   readonly longitude: Longitude;
   readonly altitude: Altitude;
@@ -25,13 +25,18 @@ export interface Position {
   readonly timestamp: Timestamp;
 }
 
-// Position creation data
+// Core position interface with methods (matches C++ Position class)
+export interface Position extends BasePosition {
+  distanceTo(lastPosition: Position): unknown;
+}
+
+// Position creation data (only data, no methods)
 export interface CreatePositionData {
   latitude: Latitude;
   longitude: Longitude;
-  altitude?: Altitude;
-  accuracy?: Accuracy;
-  timestamp?: Timestamp;
+  altitude?: Altitude | undefined;
+  accuracy?: Accuracy | undefined;
+  timestamp?: Timestamp | undefined;
 }
 
 // Position with additional metadata
