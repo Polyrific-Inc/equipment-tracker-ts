@@ -7,270 +7,105 @@
  */
 
 import { Router } from 'express';
-import type { PositionAPI, GeographicBounds } from '../../types/index.js';
-import type { IPositionRepository } from '../../repositories/position.repository.js';
-import type { GpsTrackingService } from '../../services/gps-tracking.service.js';
-import type { AppService } from '../../services/app.service.js';
-import {
-  sanitizePositionQuery,
-  parseGeographicBounds,
-} from '../../infrastructure/utils/query-parser.js';
 import { asyncHandler } from '../../infrastructure/utils/async-handler.js';
+import { Controllers } from '../controllers/index.js';
+import {
+  authenticate,
+  requireAdmin,
+  requireOperator,
+  validatePosition,
+  endpointRateLimit,
+} from '../middleware/index.js';
 
-export const createPositionRoutes = (
-  positionRepository: IPositionRepository,
-  gpsTrackingService: GpsTrackingService,
-  appService: AppService,
-): Router => {
+export const createPositionRoutes = (controllers: Controllers): Router => {
   const router = Router();
+  const { positionController } = controllers;
 
-  // Helper function to convert stored positions to PositionWithMetadata
-  const convertToPositionWithMetadata = (positions: any[]) => {
-    return positions.map(pos => ({
-      id: pos.id,
-      equipmentId: pos.equipmentId,
-      latitude: pos.latitude,
-      longitude: pos.longitude,
-      altitude: pos.altitude,
-      accuracy: pos.accuracy,
-      timestamp: pos.timestamp,
-      source: pos.source,
-      speed: pos.speed,
-      heading: pos.heading,
-      satellites: pos.satellites,
-      distanceTo: pos.distanceTo,
-    }));
-  };
-
-  // GET /api/positions - List positions with filtering and pagination
+  // GET /api/positions - List positions
   router.get(
     '/',
-    asyncHandler(async (req: PositionAPI.ListRequest, res: PositionAPI.ListResponse) => {
-      const { filter, pagination } = sanitizePositionQuery(req.query);
-      const result = await positionRepository.findByFilter(filter, pagination);
-      const positionsWithMetadata = convertToPositionWithMetadata(result.data ?? []);
-
-      res.json({
-        success: true,
-        data: {
-          data: positionsWithMetadata,
-          pagination: result.pagination,
-          success: true,
-          timestamp: new Date(),
-        },
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    validatePosition.list,
+    asyncHandler(endpointRateLimit.dynamic),
+    asyncHandler(positionController.list),
   );
 
-  // GET /api/positions/latest - Get latest positions for all equipment
+  // GET /api/positions/latest - Latest positions
   router.get(
     '/latest',
-    asyncHandler(async (req, res) => {
-      const limit = Number(req.query.limit) || 50;
-      const positions = await positionRepository.getLatestPositions(limit);
-      const positionsWithMetadata = convertToPositionWithMetadata(positions);
-
-      res.json({
-        success: true,
-        data: positionsWithMetadata,
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getLatest),
   );
 
-  // GET /api/positions/live - Get live positions for specific equipment or area
+  // GET /api/positions/live - Live positions
   router.get(
     '/live',
-    asyncHandler(async (req: PositionAPI.LiveRequest, res: PositionAPI.LiveResponse) => {
-      const equipmentIds = req.query.equipmentIds ? req.query.equipmentIds.split(',') : undefined;
-      const boundsJson = req.query.bounds;
-      const bounds = parseGeographicBounds(boundsJson);
-
-      let positions;
-
-      if (equipmentIds) {
-        const result = await positionRepository.findByEquipmentIds(equipmentIds, {
-          page: 1,
-          limit: 100,
-        });
-        positions = result.data ?? [];
-      } else if (bounds) {
-        const result = await positionRepository.findInArea(bounds, { page: 1, limit: 100 });
-        positions = result.data ?? [];
-      } else {
-        positions = await positionRepository.getLatestPositions(100);
-      }
-
-      const positionsWithMetadata = convertToPositionWithMetadata(positions);
-
-      res.json({
-        success: true,
-        data: positionsWithMetadata,
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getLive),
   );
 
-  // POST /api/positions/bulk - Bulk create positions
+  // POST /api/positions/bulk - Bulk create
   router.post(
     '/bulk',
-    asyncHandler(
-      async (req: PositionAPI.BulkCreateRequest, res: PositionAPI.BulkCreateResponse) => {
-        const { positions } = req.body;
-        const errors: string[] = [];
-        let created = 0;
-
-        for (const positionData of positions) {
-          try {
-            await appService.processPositionUpdate(positionData.equipmentId, {
-              latitude: positionData.latitude,
-              longitude: positionData.longitude,
-              altitude: positionData.altitude ?? undefined,
-              accuracy: positionData.accuracy ?? undefined,
-              timestamp: positionData.timestamp ?? undefined,
-            });
-            created++;
-          } catch (error) {
-            errors.push(
-              `Failed to create position for equipment ${positionData.equipmentId}: ${error instanceof Error ? error.message : String(error)}`,
-            );
-          }
-        }
-
-        res.status(created > 0 ? 201 : 400).json({
-          success: created > 0,
-          data: { created, errors },
-          timestamp: new Date(),
-        });
-      },
-    ),
+    authenticate,
+    requireOperator,
+    validatePosition.bulkCreate,
+    asyncHandler(endpointRateLimit.bulk),
+    asyncHandler(positionController.bulkCreate),
   );
 
-  // GET /api/positions/area - Get positions within geographic area
+  // GET /api/positions/area - Positions in area
   router.get(
     '/area',
-    asyncHandler(async (req, res) => {
-      const { minLat, maxLat, minLng, maxLng } = req.query as Record<string, string>;
-
-      if (!minLat || !maxLat || !minLng || !maxLng) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required parameters: minLat, maxLat, minLng, maxLng',
-          timestamp: new Date(),
-        });
-        return;
-      }
-
-      const bounds: GeographicBounds = {
-        southWest: { lat: Number(minLat), lng: Number(minLng) },
-        northEast: { lat: Number(maxLat), lng: Number(maxLng) },
-      };
-
-      const page = Number(req.query.page) || 1;
-      const limit = Number(req.query.limit) || 20;
-
-      const result = await positionRepository.findInArea(bounds, { page, limit });
-      const positionsWithMetadata = convertToPositionWithMetadata(result.data ?? []);
-
-      res.json({
-        success: true,
-        data: positionsWithMetadata,
-        timestamp: new Date(),
-        pagination: result.pagination,
-      });
-    }),
+    authenticate,
+    validatePosition.area,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getInArea),
   );
 
-  // GET /api/positions/near - Get positions near a specific point
+  // GET /api/positions/near - Positions near point
   router.get(
     '/near',
-    asyncHandler(async (req, res) => {
-      const { lat, lng, radius } = req.query as Record<string, string>;
-
-      if (!lat || !lng || !radius) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required parameters: lat, lng, radius',
-          timestamp: new Date(),
-        });
-        return;
-      }
-
-      const latitude = Number(lat);
-      const longitude = Number(lng);
-      const radiusMeters = Number(radius);
-      const page = Number(req.query.page) || 1;
-      const limit = Number(req.query.limit) || 20;
-
-      const result = await positionRepository.findNearPosition(latitude, longitude, radiusMeters, {
-        page,
-        limit,
-      });
-
-      const positionsWithMetadata = convertToPositionWithMetadata(result.data ?? []);
-
-      res.json({
-        success: true,
-        data: positionsWithMetadata,
-        timestamp: new Date(),
-        pagination: result.pagination,
-      });
-    }),
+    authenticate,
+    validatePosition.near,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getNear),
   );
 
-  // GET /api/positions/accuracy - Get positions by accuracy range
+  // GET /api/positions/accuracy - Positions by accuracy
   router.get(
     '/accuracy',
-    asyncHandler(async (req, res) => {
-      const minAccuracy = req.query.min ? Number(req.query.min) : undefined;
-      const maxAccuracy = req.query.max ? Number(req.query.max) : undefined;
-
-      const positions = await positionRepository.getPositionsByAccuracy(minAccuracy, maxAccuracy);
-      const positionsWithMetadata = convertToPositionWithMetadata(positions);
-
-      res.json({
-        success: true,
-        data: positionsWithMetadata,
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getByAccuracy),
   );
 
-  // GET /api/positions/stats - Get position statistics
+  // GET /api/positions/stats - Position statistics
   router.get(
     '/stats',
-    asyncHandler(async (req, res) => {
-      const equipmentId = req.query.equipmentId as string | undefined;
-      const count = await positionRepository.getPositionCount(equipmentId);
-      const trackingStats = await gpsTrackingService.getTrackingStatistics();
-
-      res.json({
-        success: true,
-        data: {
-          totalPositions: count,
-          ...trackingStats,
-        },
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    asyncHandler(endpointRateLimit.standard),
+    asyncHandler(positionController.getStats),
   );
 
-  // DELETE /api/positions/cleanup - Clean up old positions
+  // POST /api/positions/analyze - Analyze patterns
+  router.post(
+    '/analyze',
+    authenticate,
+    requireOperator,
+    asyncHandler(endpointRateLimit.strict),
+    asyncHandler(positionController.analyzePatterns),
+  );
+
+  // DELETE /api/positions/cleanup - Cleanup old positions
   router.delete(
     '/cleanup',
-    asyncHandler(async (req, res) => {
-      const daysOld = Number(req.query.days) || 30;
-      const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
-
-      const deletedCount = await positionRepository.deleteOlderThan(cutoffDate);
-
-      res.json({
-        success: true,
-        data: { deletedCount, cutoffDate },
-        timestamp: new Date(),
-      });
-    }),
+    authenticate,
+    requireAdmin,
+    asyncHandler(endpointRateLimit.strict),
+    asyncHandler(positionController.cleanup),
   );
 
   return router;

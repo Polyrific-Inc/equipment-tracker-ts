@@ -31,6 +31,15 @@ export interface IAppService {
   ): Promise<void>;
   startEquipmentTracking(equipmentId: EquipmentId): Promise<void>;
   stopEquipmentTracking(equipmentId: EquipmentId): Promise<void>;
+  startDemoSimulation(): Promise<void>;
+  stopAllSimulations(): Promise<void>;
+  getApplicationStatistics(): Promise<{
+    equipment: any;
+    tracking: any;
+    alerts: any;
+    uptime: number;
+    memoryUsage: NodeJS.MemoryUsage;
+  }>;
 
   // Health check
   getHealthStatus(): Promise<{

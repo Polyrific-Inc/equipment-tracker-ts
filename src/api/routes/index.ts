@@ -12,23 +12,21 @@ import { createPositionRoutes } from './position.routes.js';
 import { createGeofenceRoutes } from './geofence.routes.js';
 import { asyncHandler } from '../../infrastructure/utils/async-handler.js';
 import type { AppService } from '../../services/app.service.js';
+import { Controllers } from '../controllers/index.js';
 
 export interface ApiRouterDependencies {
   appService: AppService;
+  controllers: Controllers;
 }
 
 export const createApiRouter = (dependencies: ApiRouterDependencies): Router => {
-  const { appService } = dependencies;
+  const { appService, controllers } = dependencies;
   const router = Router();
 
   // Get service instances
-  const equipmentService = appService.getEquipmentService();
-  const gpsTrackingService = appService.getGpsTrackingService();
-  const alertService = appService.getAlertService();
 
   // We need to access repositories - they should be accessible through services
   // For now, we'll create a simplified version that uses services
-  const positionRepository = (appService as any).positionRepository;
 
   // API health check endpoint
   router.get(
@@ -63,13 +61,10 @@ export const createApiRouter = (dependencies: ApiRouterDependencies): Router => 
   });
 
   // Mount route modules
-  router.use('/equipment', createEquipmentRoutes(equipmentService));
-  router.use('/fleet', createFleetRoutes(equipmentService, alertService, appService));
-  router.use(
-    '/positions',
-    createPositionRoutes(positionRepository, gpsTrackingService, appService),
-  );
-  router.use('/geofences', createGeofenceRoutes(alertService));
+  router.use('/equipment', createEquipmentRoutes(controllers));
+  router.use('/fleet', createFleetRoutes(controllers));
+  router.use('/positions', createPositionRoutes(controllers));
+  router.use('/geofences', createGeofenceRoutes(controllers));
 
   // Catch-all route for unhandled API endpoints
   router.use('*', (req, res) => {
