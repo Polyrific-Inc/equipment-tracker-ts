@@ -13,10 +13,6 @@ import {
   CreatePositionData,
   EquipmentId,
   PositionSource,
-  GpsData,
-  NmeaData,
-  NmeaMessageType,
-  PositionCallback,
   Timestamp,
   Distance,
 } from '../types/index.js';

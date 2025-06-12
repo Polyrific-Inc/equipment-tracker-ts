@@ -4,7 +4,7 @@
  * Position domain model - represents a geographic position with GPS data
  */
 
-import type {
+import {
   Position as IPosition,
   CreatePositionData,
   DistanceCalculation,
@@ -15,8 +15,11 @@ import type {
   Accuracy,
   Timestamp,
   Distance,
+  Constants,
+  isValidLatitude,
+  isValidLongitude,
+  isValidTimestamp,
 } from '../types/index.js';
-import { Constants, isValidLatitude, isValidLongitude, isValidTimestamp } from 'types/index.js';
 
 export class Position implements IPosition {
   readonly latitude: Latitude;

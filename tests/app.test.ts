@@ -2,7 +2,7 @@
  * Basic test to verify our setup is working
  */
 
-import { welcome } from '../../src/app.js';
+import { welcome } from '../src/app.js';
 
 describe('Application Setup', () => {
   test('welcome function should return greeting message', () => {
