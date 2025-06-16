@@ -180,7 +180,10 @@ export const isWithinDistance = (
   // Quick bounding box check first (very fast)
   const R = Constants.EARTH_RADIUS_METERS;
   const latThreshold = (thresholdMeters / R) * RAD_TO_DEG;
-  const lngThreshold = latThreshold / Math.cos(lat1 * DEG_TO_RAD);
+  
+  // Handle numerical instability near poles
+  const cosLat1 = Math.cos(lat1 * DEG_TO_RAD);
+  const lngThreshold = cosLat1 < 1e-10 ? 180 : Math.min(180, latThreshold / cosLat1);
 
   if (
     Math.abs(lat2 - lat1) > latThreshold ||
