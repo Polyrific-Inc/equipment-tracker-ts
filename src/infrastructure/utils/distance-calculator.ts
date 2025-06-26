@@ -79,7 +79,11 @@ export const calculateFastDistance = (
   const x = deltaLonRad * Math.cos((lat1Rad + lat2Rad) / 2);
   const y = deltaLatRad;
 
-  return R * Math.sqrt(x * x + y * y);
+  const distanceSquared = x * x + y * y;
+  if (!Number.isFinite(distanceSquared) || distanceSquared < 0) {
+    throw new Error('Invalid distance calculation result');
+  }
+  return R * Math.sqrt(distanceSquared);
 };
 
 /**
