@@ -33,23 +33,23 @@ jest.mock('../../src/infrastructure/utils/query-parser', () => ({
     pagination: { page: 1, limit: 10 },
   }),
   parseTimeRangeQuery: jest.fn().mockReturnValue({
-    startDate: new Date('2023-01-01'),
-    endDate: new Date('2023-01-31'),
+    startTime: new Date('2023-01-01'),
+    endTime: new Date('2023-01-02'),
   }),
 }));
 
 describe('EquipmentController', () => {
   let controller: EquipmentController;
   let mockEquipmentService: any;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
   let mockNext: jest.MockedFunction<NextFunction>;
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
 
-    // Create mock service
+    // Create mock equipment service
     mockEquipmentService = {
       findEquipment: jest.fn(),
       getEquipment: jest.fn(),
@@ -66,18 +66,18 @@ describe('EquipmentController', () => {
       getAllEquipment: jest.fn(),
     };
 
-    // Create controller with mock service
+    // Create controller instance
     controller = new EquipmentController(mockEquipmentService);
 
     // Create mock request, response, and next function
-    mockRequest = {
-      params: {},
+    mockReq = {
+      params: { id: 'equip-123' },
       query: {},
       body: {},
-      user: { id: 'user123' },
+      user: { id: 'user-123' },
     };
 
-    mockResponse = {
+    mockRes = {
       json: jest.fn().mockReturnThis(),
       status: jest.fn().mockReturnThis(),
     };
@@ -87,245 +87,143 @@ describe('EquipmentController', () => {
 
   describe('list', () => {
     it('should return a list of equipment', async () => {
-      // Arrange
       const mockResult = {
-        data: [{ id: 'equip1', name: 'Equipment 1' }],
+        data: [{ id: 'equip-123', name: 'Bulldozer' }],
         pagination: { page: 1, limit: 10, total: 1 },
       };
       mockEquipmentService.findEquipment.mockResolvedValue(mockResult);
 
-      // Act
-      await controller.list(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.list(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.findEquipment).toHaveBeenCalled();
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockResult,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment list retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment list retrieved', expect.any(Object));
     });
 
     it('should handle errors', async () => {
-      // Arrange
       const error = new Error('Database error');
       mockEquipmentService.findEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.list(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.list(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to list equipment',
-        expect.any(Object)
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to list equipment', expect.any(Object));
     });
   });
 
   describe('getById', () => {
     it('should return equipment by ID', async () => {
-      // Arrange
-      const mockEquipment = { id: 'equip1', name: 'Equipment 1' };
-      mockRequest.params = { id: 'equip1' };
+      const mockEquipment = { id: 'equip-123', name: 'Bulldozer' };
       mockEquipmentService.getEquipment.mockResolvedValue(mockEquipment);
 
-      // Act
-      await controller.getById(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getById(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.getEquipment).toHaveBeenCalledWith('equip1');
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.getEquipment).toHaveBeenCalledWith('equip-123');
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockEquipment,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment retrieved', expect.any(Object));
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
       mockEquipmentService.getEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.getById(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getById(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockNext).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
-      expect(logger.warn).toHaveBeenCalledWith(
-        'Equipment not found',
-        expect.any(Object)
-      );
+      expect(logger.warn).toHaveBeenCalledWith('Equipment not found', expect.any(Object));
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.getEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.getById(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getById(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to get equipment',
-        expect.any(Object)
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to get equipment', expect.any(Object));
     });
   });
 
   describe('create', () => {
     it('should create new equipment', async () => {
-      // Arrange
-      const equipmentData = { name: 'New Equipment', type: 'Bulldozer' };
-      const createdEquipment = { id: 'new1', ...equipmentData };
-      mockRequest.body = equipmentData;
+      const equipmentData = { name: 'New Bulldozer', type: 'heavy' };
+      const createdEquipment = { id: 'equip-123', ...equipmentData };
+      mockReq.body = equipmentData;
       mockEquipmentService.createEquipment.mockResolvedValue(createdEquipment);
 
-      // Act
-      await controller.create(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.create(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.createEquipment).toHaveBeenCalledWith(equipmentData);
-      expect(mockResponse.status).toHaveBeenCalledWith(201);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.status).toHaveBeenCalledWith(201);
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: createdEquipment,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment created',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment created', expect.any(Object));
     });
 
-    it('should handle conflict error', async () => {
-      // Arrange
-      mockRequest.body = { id: 'existing', name: 'Existing Equipment' };
+    it('should handle conflict errors', async () => {
       const error = new Error('Equipment already exists');
+      mockReq.body = { id: 'equip-123', name: 'Bulldozer' };
       mockEquipmentService.createEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.create(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.create(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockNext).toHaveBeenCalled();
-      expect(createError.conflict).toHaveBeenCalledWith(
-        'Equipment with this ID already exists'
-      );
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
+      expect(createError.conflict).toHaveBeenCalledWith('Equipment with this ID already exists');
       expect(logger.warn).toHaveBeenCalledWith(
         'Equipment creation failed - already exists',
         expect.any(Object)
       );
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.body = { name: 'New Equipment' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.createEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.create(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.create(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to create equipment',
-        expect.any(Object)
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to create equipment', expect.any(Object));
     });
   });
 
   describe('update', () => {
     it('should update equipment', async () => {
-      // Arrange
-      const updateData = { name: 'Updated Equipment' };
-      const updatedEquipment = { id: 'equip1', ...updateData };
-      mockRequest.params = { id: 'equip1' };
-      mockRequest.body = updateData;
+      const updateData = { name: 'Updated Bulldozer' };
+      const updatedEquipment = { id: 'equip-123', ...updateData };
+      mockReq.body = updateData;
       mockEquipmentService.updateEquipment.mockResolvedValue(updatedEquipment);
 
-      // Act
-      await controller.update(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.update(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.updateEquipment).toHaveBeenCalledWith('equip1', updateData);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.updateEquipment).toHaveBeenCalledWith('equip-123', updateData);
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: updatedEquipment,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment updated',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment updated', expect.any(Object));
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
-      mockRequest.body = { name: 'Updated Equipment' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
+      mockReq.body = { name: 'Updated Bulldozer' };
       mockEquipmentService.updateEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.update(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.update(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockNext).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
       expect(logger.warn).toHaveBeenCalledWith(
         'Equipment update failed - not found',
@@ -333,70 +231,39 @@ describe('EquipmentController', () => {
       );
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
-      mockRequest.body = { name: 'Updated Equipment' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.updateEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.update(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.update(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to update equipment',
-        expect.any(Object)
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to update equipment', expect.any(Object));
     });
   });
 
   describe('delete', () => {
     it('should delete equipment', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
       mockEquipmentService.deleteEquipment.mockResolvedValue(undefined);
 
-      // Act
-      await controller.delete(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.delete(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.deleteEquipment).toHaveBeenCalledWith('equip1');
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.deleteEquipment).toHaveBeenCalledWith('equip-123');
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: { deleted: true },
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment deleted',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment deleted', expect.any(Object));
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
       mockEquipmentService.deleteEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.delete(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.delete(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockNext).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
       expect(logger.warn).toHaveBeenCalledWith(
         'Equipment deletion failed - not found',
@@ -404,71 +271,48 @@ describe('EquipmentController', () => {
       );
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.deleteEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.delete(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.delete(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to delete equipment',
-        expect.any(Object)
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to delete equipment', expect.any(Object));
     });
   });
 
   describe('getActive', () => {
     it('should return active equipment', async () => {
-      // Arrange
       const mockResult = {
-        data: [{ id: 'equip1', name: 'Equipment 1', status: 'active' }],
+        data: [{ id: 'equip-123', name: 'Active Bulldozer' }],
         pagination: { page: 1, limit: 10, total: 1 },
       };
       mockEquipmentService.getActiveEquipment.mockResolvedValue(mockResult);
 
-      // Act
-      await controller.getActive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getActive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.getActiveEquipment).toHaveBeenCalled();
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.getActiveEquipment).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        sortBy: undefined,
+        sortOrder: undefined,
+      });
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockResult.data,
         timestamp: expect.any(Date),
         pagination: mockResult.pagination,
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Active equipment retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Active equipment retrieved', expect.any(Object));
     });
 
     it('should handle errors', async () => {
-      // Arrange
       const error = new Error('Database error');
       mockEquipmentService.getActiveEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.getActive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getActive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get active equipment',
@@ -479,22 +323,13 @@ describe('EquipmentController', () => {
 
   describe('getMaintenanceDue', () => {
     it('should return equipment due for maintenance', async () => {
-      // Arrange
-      const mockEquipment = [
-        { id: 'equip1', name: 'Equipment 1', maintenanceDue: true },
-      ];
+      const mockEquipment = [{ id: 'equip-123', name: 'Maintenance Due Bulldozer' }];
       mockEquipmentService.getMaintenanceDue.mockResolvedValue(mockEquipment);
 
-      // Act
-      await controller.getMaintenanceDue(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getMaintenanceDue(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.getMaintenanceDue).toHaveBeenCalled();
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockEquipment,
         timestamp: expect.any(Date),
@@ -506,18 +341,11 @@ describe('EquipmentController', () => {
     });
 
     it('should handle errors', async () => {
-      // Arrange
       const error = new Error('Database error');
       mockEquipmentService.getMaintenanceDue.mockRejectedValue(error);
 
-      // Act
-      await controller.getMaintenanceDue(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getMaintenanceDue(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get maintenance due equipment',
@@ -528,22 +356,13 @@ describe('EquipmentController', () => {
 
   describe('getInactive', () => {
     it('should return inactive equipment with default time', async () => {
-      // Arrange
-      const mockEquipment = [
-        { id: 'equip1', name: 'Equipment 1', status: 'inactive' },
-      ];
+      const mockEquipment = [{ id: 'equip-123', name: 'Inactive Bulldozer' }];
       mockEquipmentService.getInactiveEquipment.mockResolvedValue(mockEquipment);
 
-      // Act
-      await controller.getInactive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getInactive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.getInactiveEquipment).toHaveBeenCalledWith(expect.any(Date));
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockEquipment,
         timestamp: expect.any(Date),
@@ -552,61 +371,46 @@ describe('EquipmentController', () => {
           totalFound: 1,
         },
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Inactive equipment retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Inactive equipment retrieved', expect.any(Object));
     });
 
     it('should return inactive equipment with specified time', async () => {
-      // Arrange
-      mockRequest.query = { since: '2023-01-01' };
-      const mockEquipment = [
-        { id: 'equip1', name: 'Equipment 1', status: 'inactive' },
-      ];
+      const sinceDate = '2023-01-01T00:00:00Z';
+      mockReq.query = { since: sinceDate };
+      const mockEquipment = [{ id: 'equip-123', name: 'Inactive Bulldozer' }];
       mockEquipmentService.getInactiveEquipment.mockResolvedValue(mockEquipment);
 
-      // Act
-      await controller.getInactive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getInactive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.getInactiveEquipment).toHaveBeenCalledWith(new Date('2023-01-01'));
-      expect(mockResponse.json).toHaveBeenCalled();
+      expect(mockEquipmentService.getInactiveEquipment).toHaveBeenCalledWith(new Date(sinceDate));
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockEquipment,
+        timestamp: expect.any(Date),
+        meta: {
+          inactiveSince: new Date(sinceDate),
+          totalFound: 1,
+        },
+      });
     });
 
     it('should handle invalid date format', async () => {
-      // Arrange
-      mockRequest.query = { since: 'invalid-date' };
+      mockReq.query = { since: 'invalid-date' };
 
-      // Act
-      await controller.getInactive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getInactive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
-      expect(createError.badRequest).toHaveBeenCalledWith('Invalid date format for "since" parameter');
+      expect(createError.badRequest).toHaveBeenCalledWith(
+        'Invalid date format for "since" parameter'
+      );
     });
 
     it('should handle errors', async () => {
-      // Arrange
       const error = new Error('Database error');
       mockEquipmentService.getInactiveEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.getInactive(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getInactive(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get inactive equipment',
@@ -617,8 +421,6 @@ describe('EquipmentController', () => {
 
   describe('checkHealth', () => {
     it('should check equipment health', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
       const mockHealth = {
         status: 'good',
         issues: [],
@@ -626,74 +428,42 @@ describe('EquipmentController', () => {
       };
       mockEquipmentService.checkEquipmentHealth.mockResolvedValue(mockHealth);
 
-      // Act
-      await controller.checkHealth(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.checkHealth(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.checkEquipmentHealth).toHaveBeenCalledWith('equip1');
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.checkEquipmentHealth).toHaveBeenCalledWith('equip-123');
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockHealth,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment health checked',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment health checked', expect.any(Object));
     });
 
     it('should handle missing ID', async () => {
-      // Arrange
-      mockRequest.params = {};
+      mockReq.params = {};
 
-      // Act
-      await controller.checkHealth(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.checkHealth(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(createError.badRequest).toHaveBeenCalledWith('Equipment ID is required');
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
       mockEquipmentService.checkEquipmentHealth.mockRejectedValue(error);
 
-      // Act
-      await controller.checkHealth(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.checkHealth(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.checkEquipmentHealth.mockRejectedValue(error);
 
-      // Act
-      await controller.checkHealth(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.checkHealth(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to check equipment health',
@@ -704,68 +474,42 @@ describe('EquipmentController', () => {
 
   describe('getPositions', () => {
     it('should return equipment positions', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
       const mockResult = {
-        data: [
-          { latitude: 40.7128, longitude: -74.006, timestamp: new Date() },
-        ],
+        data: [{ latitude: 40.7128, longitude: -74.006 }],
         pagination: { page: 1, limit: 10, total: 1 },
       };
       mockEquipmentService.getEquipmentPositions.mockResolvedValue(mockResult);
 
-      // Act
-      await controller.getPositions(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getPositions(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockEquipmentService.getEquipmentPositions).toHaveBeenCalledWith('equip1', expect.any(Object));
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockEquipmentService.getEquipmentPositions).toHaveBeenCalledWith(
+        'equip-123',
+        expect.any(Object)
+      );
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockResult,
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment positions retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment positions retrieved', expect.any(Object));
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
       mockEquipmentService.getEquipmentPositions.mockRejectedValue(error);
 
-      // Act
-      await controller.getPositions(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getPositions(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.getEquipmentPositions.mockRejectedValue(error);
 
-      // Act
-      await controller.getPositions(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getPositions(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get equipment positions',
@@ -776,27 +520,20 @@ describe('EquipmentController', () => {
 
   describe('addPosition', () => {
     it('should add position to equipment', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
-      mockRequest.body = {
+      const positionData = {
         latitude: 40.7128,
         longitude: -74.006,
         altitude: 10,
         accuracy: 5,
         timestamp: new Date(),
       };
+      mockReq.body = positionData;
       mockEquipmentService.updateEquipmentPosition.mockResolvedValue(undefined);
 
-      // Act
-      await controller.addPosition(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.addPosition(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.updateEquipmentPosition).toHaveBeenCalledWith(
-        'equip1',
+        'equip-123',
         expect.objectContaining({
           latitude: 40.7128,
           longitude: -74.006,
@@ -806,8 +543,8 @@ describe('EquipmentController', () => {
           distanceTo: expect.any(Function),
         })
       );
-      expect(mockResponse.status).toHaveBeenCalledWith(201);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.status).toHaveBeenCalledWith(201);
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: expect.objectContaining({
           latitude: 40.7128,
@@ -820,25 +557,18 @@ describe('EquipmentController', () => {
       });
     });
 
-    it('should use default values for optional position properties', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
-      mockRequest.body = {
+    it('should use default values for optional fields', async () => {
+      const positionData = {
         latitude: 40.7128,
         longitude: -74.006,
       };
+      mockReq.body = positionData;
       mockEquipmentService.updateEquipmentPosition.mockResolvedValue(undefined);
 
-      // Act
-      await controller.addPosition(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.addPosition(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.updateEquipmentPosition).toHaveBeenCalledWith(
-        'equip1',
+        'equip-123',
         expect.objectContaining({
           latitude: 40.7128,
           longitude: -74.006,
@@ -849,46 +579,23 @@ describe('EquipmentController', () => {
       );
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
-      mockRequest.body = {
-        latitude: 40.7128,
-        longitude: -74.006,
-      };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
+      mockReq.body = { latitude: 40.7128, longitude: -74.006 };
       mockEquipmentService.updateEquipmentPosition.mockRejectedValue(error);
 
-      // Act
-      await controller.addPosition(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.addPosition(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
-      mockRequest.body = {
-        latitude: 40.7128,
-        longitude: -74.006,
-      };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.updateEquipmentPosition.mockRejectedValue(error);
 
-      // Act
-      await controller.addPosition(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.addPosition(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to add position to equipment',
@@ -899,66 +606,42 @@ describe('EquipmentController', () => {
 
   describe('getMovementAnalysis', () => {
     it('should return movement analysis', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
       const mockAnalysis = {
         totalDistance: 100,
-        averageSpeed: 5,
+        averageSpeed: 10,
         movementPeriods: [],
       };
       mockEquipmentService.getEquipmentMovementAnalysis.mockResolvedValue(mockAnalysis);
 
-      // Act
-      await controller.getMovementAnalysis(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getMovementAnalysis(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockEquipmentService.getEquipmentMovementAnalysis).toHaveBeenCalledWith(
-        'equip1',
+        'equip-123',
         expect.any(Object)
       );
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: mockAnalysis,
         timestamp: expect.any(Date),
       });
     });
 
-    it('should handle not found error', async () => {
-      // Arrange
-      mockRequest.params = { id: 'nonexistent' };
+    it('should handle not found errors', async () => {
       const error = new Error('Equipment not found');
       mockEquipmentService.getEquipmentMovementAnalysis.mockRejectedValue(error);
 
-      // Act
-      await controller.getMovementAnalysis(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getMovementAnalysis(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(createError.notFound).toHaveBeenCalledWith('Equipment');
     });
 
-    it('should handle general errors', async () => {
-      // Arrange
-      mockRequest.params = { id: 'equip1' };
+    it('should handle other errors', async () => {
       const error = new Error('Database error');
       mockEquipmentService.getEquipmentMovementAnalysis.mockRejectedValue(error);
 
-      // Act
-      await controller.getMovementAnalysis(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getMovementAnalysis(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get movement analysis',
@@ -969,104 +652,70 @@ describe('EquipmentController', () => {
 
   describe('getSummary', () => {
     it('should return equipment summary statistics', async () => {
-      // Arrange
-      const mockTotalEquipment = {
+      mockEquipmentService.getAllEquipment.mockResolvedValue({
         data: [],
-        pagination: { page: 1, limit: 1, total: 100 },
-      };
-      const mockActiveEquipment = {
+        pagination: { total: 100 },
+      });
+      mockEquipmentService.getActiveEquipment.mockResolvedValue({
         data: [],
-        pagination: { page: 1, limit: 1, total: 80 },
-      };
-      const mockMaintenanceEquipment = [
-        { id: 'equip1' },
-        { id: 'equip2' },
-      ];
-      const mockInactiveEquipment = [
-        { id: 'equip3' },
-      ];
+        pagination: { total: 80 },
+      });
+      mockEquipmentService.getMaintenanceDue.mockResolvedValue([{}, {}, {}]);
+      mockEquipmentService.getInactiveEquipment.mockResolvedValue([{}, {}]);
 
-      mockEquipmentService.getAllEquipment.mockResolvedValue(mockTotalEquipment);
-      mockEquipmentService.getActiveEquipment.mockResolvedValue(mockActiveEquipment);
-      mockEquipmentService.getMaintenanceDue.mockResolvedValue(mockMaintenanceEquipment);
-      mockEquipmentService.getInactiveEquipment.mockResolvedValue(mockInactiveEquipment);
+      await controller.getSummary(mockReq as any, mockRes as any, mockNext);
 
-      // Act
-      await controller.getSummary(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
-
-      // Assert
       expect(mockEquipmentService.getAllEquipment).toHaveBeenCalled();
       expect(mockEquipmentService.getActiveEquipment).toHaveBeenCalled();
       expect(mockEquipmentService.getMaintenanceDue).toHaveBeenCalled();
       expect(mockEquipmentService.getInactiveEquipment).toHaveBeenCalled();
-      
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: {
           totalEquipment: 100,
           activeEquipment: 80,
-          maintenanceEquipment: 2,
-          inactiveEquipment: 1,
+          maintenanceEquipment: 3,
+          inactiveEquipment: 2,
           utilizationRate: 80,
         },
         timestamp: expect.any(Date),
       });
-      expect(logger.info).toHaveBeenCalledWith(
-        'Equipment summary retrieved',
-        expect.any(Object)
-      );
+      expect(logger.info).toHaveBeenCalledWith('Equipment summary retrieved', expect.any(Object));
     });
 
-    it('should handle zero equipment case for utilization rate', async () => {
-      // Arrange
-      const mockTotalEquipment = {
+    it('should handle zero total equipment case', async () => {
+      mockEquipmentService.getAllEquipment.mockResolvedValue({
         data: [],
-        pagination: { page: 1, limit: 1, total: 0 },
-      };
-      const mockActiveEquipment = {
+        pagination: { total: 0 },
+      });
+      mockEquipmentService.getActiveEquipment.mockResolvedValue({
         data: [],
-        pagination: { page: 1, limit: 1, total: 0 },
-      };
-      
-      mockEquipmentService.getAllEquipment.mockResolvedValue(mockTotalEquipment);
-      mockEquipmentService.getActiveEquipment.mockResolvedValue(mockActiveEquipment);
+        pagination: { total: 0 },
+      });
       mockEquipmentService.getMaintenanceDue.mockResolvedValue([]);
       mockEquipmentService.getInactiveEquipment.mockResolvedValue([]);
 
-      // Act
-      await controller.getSummary(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getSummary(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
-      expect(mockResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            utilizationRate: 0,
-          }),
-        })
-      );
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          totalEquipment: 0,
+          activeEquipment: 0,
+          maintenanceEquipment: 0,
+          inactiveEquipment: 0,
+          utilizationRate: 0,
+        },
+        timestamp: expect.any(Date),
+      });
     });
 
     it('should handle errors', async () => {
-      // Arrange
       const error = new Error('Database error');
       mockEquipmentService.getAllEquipment.mockRejectedValue(error);
 
-      // Act
-      await controller.getSummary(
-        mockRequest as any,
-        mockResponse as any,
-        mockNext
-      );
+      await controller.getSummary(mockReq as any, mockRes as any, mockNext);
 
-      // Assert
       expect(mockNext).toHaveBeenCalledWith(error);
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to get equipment summary',
