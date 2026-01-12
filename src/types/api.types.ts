@@ -27,6 +27,7 @@ import type {
   MovementAnalysis,
   Geofence,
 } from './position.types.js';
+import type { CreateGeofenceData } from '../services/alert.service.js';
 
 // Extended Express types with additional logging properties
 export interface AuthenticatedRequest extends Request {
@@ -203,14 +204,14 @@ export namespace GeofenceAPI {
 
   // POST /api/geofences
   export interface CreateRequest extends Request {
-    body: Omit<Geofence, 'id' | 'createdAt' | 'updatedAt'>;
+    body: CreateGeofenceData;
   }
   export type CreateResponse = TypedResponse<Geofence>;
 
   // PUT /api/geofences/:id
   export interface UpdateRequest extends Request {
     params: { id: string };
-    body: Partial<Omit<Geofence, 'id' | 'createdAt' | 'updatedAt'>>;
+    body: Partial<CreateGeofenceData>;
   }
   export type UpdateResponse = TypedResponse<Geofence>;
 

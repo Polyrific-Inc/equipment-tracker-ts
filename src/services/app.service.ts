@@ -1,17 +1,50 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable max-lines-per-function */
 /* eslint-disable no-console */
 /**
  * Application Service - Orchestrates all services and handles application lifecycle
  */
 
-import type { EquipmentId, Position, CreatePositionData, PositionSource } from '../types/index.js';
+import { 
+  type EquipmentId, 
+  type Position, 
+  type CreatePositionData, 
+  type PositionSource, 
+  type FleetStats,
+  type AlertType,
+  type EquipmentAlert,
+  type Timestamp,
+  GeofenceType,
+} from '../types/index.js';
 import { EquipmentRepository } from '../repositories/equipment.repository.js';
 import { PositionRepository } from '../repositories/position.repository.js';
 import { EquipmentService } from './equipment.service.js';
 import { GpsTrackingService } from './gps-tracking.service.js';
 import { AlertService } from './alert.service.js';
+
+export interface TrackingStatistics {
+  totalTrackedEquipment: number;
+  activeTracking: number;
+  positionsProcessedToday: number;
+  averageAccuracy: number;
+  lastUpdateTimes: Record<EquipmentId, Timestamp>;
+}
+
+export interface AlertStatistics {
+  totalAlerts: number;
+  unacknowledgedAlerts: number;
+  alertsByType: Record<AlertType, number>;
+  alertsBySeverity: Record<string, number>;
+  recentAlerts: EquipmentAlert[];
+}
+
+export interface ApplicationStatistics {
+  equipment: FleetStats;
+  tracking: TrackingStatistics;
+  alerts: AlertStatistics;
+  uptime: number;
+  memoryUsage: NodeJS.MemoryUsage;
+}
 
 export interface IAppService {
   // Lifecycle
@@ -33,13 +66,7 @@ export interface IAppService {
   stopEquipmentTracking(equipmentId: EquipmentId): Promise<void>;
   startDemoSimulation(): Promise<void>;
   stopAllSimulations(): Promise<void>;
-  getApplicationStatistics(): Promise<{
-    equipment: any;
-    tracking: any;
-    alerts: any;
-    uptime: number;
-    memoryUsage: NodeJS.MemoryUsage;
-  }>;
+  getApplicationStatistics(): Promise<ApplicationStatistics>;
 
   // Health check
   getHealthStatus(): Promise<{
@@ -313,25 +340,25 @@ export class AppService implements IAppService {
       // Add a sample circular geofence (warehouse area)
       await this.alertService.addGeofence({
         name: 'Main Warehouse',
-        type: 'circle',
+        type: GeofenceType.Circle,
         active: true,
         center: {
           latitude: 37.7749,
           longitude: -122.4194,
         },
         radius: 500, // 500 meters
-      } as any);
+      });
 
       // Add a sample rectangular geofence (construction site)
       await this.alertService.addGeofence({
         name: 'Construction Site A',
-        type: 'rectangle',
+        type: GeofenceType.Rectangle,
         active: true,
         bounds: {
           northEast: { lat: 37.785, lng: -122.4094 },
           southWest: { lat: 37.78, lng: -122.4144 },
         },
-      } as any);
+      });
 
       console.log('[AppService] Sample geofences created');
     } catch (error) {
@@ -454,13 +481,7 @@ export class AppService implements IAppService {
   /**
    * Get comprehensive application statistics
    */
-  async getApplicationStatistics(): Promise<{
-    equipment: any;
-    tracking: any;
-    alerts: any;
-    uptime: number;
-    memoryUsage: NodeJS.MemoryUsage;
-  }> {
+  async getApplicationStatistics(): Promise<ApplicationStatistics> {
     try {
       const [fleetStats, trackingStats, alertStats] = await Promise.all([
         this.equipmentService.getFleetStatistics(),

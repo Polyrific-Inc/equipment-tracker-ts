@@ -16,9 +16,16 @@ import type {
   GeofenceType,
   CircularGeofence,
   RectangularGeofence,
+  PolygonGeofence,
 } from '../types/index.js';
 import type { IEquipmentService } from './equipment.service.js';
 import { isPointInCircle, isPointInBounds } from '../infrastructure/utils/distance-calculator.js';
+
+// Type for creating geofences without readonly fields
+export type CreateGeofenceData = 
+  | Omit<CircularGeofence, 'id' | 'createdAt' | 'updatedAt'>
+  | Omit<RectangularGeofence, 'id' | 'createdAt' | 'updatedAt'>
+  | Omit<PolygonGeofence, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface IAlertService {
   // Alert management
@@ -30,7 +37,7 @@ export interface IAlertService {
   getUnacknowledgedAlerts(): Promise<EquipmentAlert[]>;
 
   // Geofence management
-  addGeofence(geofence: Omit<Geofence, 'id' | 'createdAt' | 'updatedAt'>): Promise<Geofence>;
+  addGeofence(geofence: CreateGeofenceData): Promise<Geofence>;
   removeGeofence(geofenceId: string): Promise<void>;
   getGeofences(): Promise<Geofence[]>;
   checkGeofenceViolations(equipmentId: EquipmentId, position: Position): Promise<void>;
@@ -174,7 +181,7 @@ export class AlertService extends EventEmitter implements IAlertService {
   }
 
   async addGeofence(
-    geofenceData: Omit<Geofence, 'id' | 'createdAt' | 'updatedAt'>,
+    geofenceData: CreateGeofenceData,
   ): Promise<Geofence> {
     const geofence: Geofence = {
       ...geofenceData,
